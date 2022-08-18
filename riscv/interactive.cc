@@ -136,6 +136,7 @@ void sim_t::interactive()
   funcs["untiln"] = &sim_t::interactive_until_noisy;
   funcs["while"] = &sim_t::interactive_until_silent;
   funcs["quit"] = &sim_t::interactive_quit;
+  funcs["echo"] = &sim_t::interactive_echo;
   funcs["interrupt"] = &sim_t::interactive_raise;
   funcs["trace"] = &sim_t::interactive_trace;
 
@@ -188,10 +189,17 @@ void sim_t::interactive()
 
     try
     {
-      if (funcs.count(cmd))
+      if (funcs.count(cmd)) {
+        if (_interactive_echo) {
+            out << cmd;
+            std::for_each(args.begin(), args.end(), 
+                          [&](const auto &x) {out << " " << x;});
+            out << std::endl;
+        }
         (this->*funcs[cmd])(cmd, args);
-      else
+      } else {
         out << "Unknown command " << cmd << std::endl;
+      }
     } catch(trap_t& t) {
       out << "Bad or missing arguments for command " << cmd << std::endl;
     }
@@ -318,6 +326,16 @@ void sim_t::interactive_run(const std::string& cmd, const std::vector<std::strin
   if (!noisy) out << ":" << std::endl;
 }
 
+void sim_t::interactive_echo(const std::string& cmd, const std::vector<std::string>& args)
+{
+  if (args.size() != 1)
+    throw trap_interactive();
+  if (args[0] == "on") {
+      _interactive_echo = true;
+  } else {
+      _interactive_echo = false;
+  }
+}
 
 void sim_t::interactive_quit(const std::string& cmd, const std::vector<std::string>& args)
 {

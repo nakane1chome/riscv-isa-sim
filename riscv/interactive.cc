@@ -136,6 +136,7 @@ void sim_t::interactive()
   funcs["untiln"] = &sim_t::interactive_until_noisy;
   funcs["while"] = &sim_t::interactive_until_silent;
   funcs["quit"] = &sim_t::interactive_quit;
+  funcs["interrupt"] = &sim_t::interactive_raise;
   funcs["trace"] = &sim_t::interactive_trace;
 
   funcs["q"] = funcs["quit"];
@@ -223,8 +224,9 @@ void sim_t::interactive_help(const std::string& cmd, const std::vector<std::stri
     "while pc <core> <val>           # Run while PC in <core> is <val>\n"
     "while mem <addr> <val>          # Run while memory <addr> is <val>\n"
     "run [count]                     # Resume noisy execution (until CTRL+C, or [count] insns)\n"
-    "r [count]                         Alias for run\n"
+    "r [count]                       # Alias for run\n"
     "rs [count]                      # Resume silent execution (until CTRL+C, or [count] insns)\n"
+    "interrupt <core>  <raise|clear> [mei|mti|msi]   # Raise an interrupt (without using CLINT/PLINT)\n"
     "trace <name> <addr> <size>      # Trace a memory address\n"
     "trace <var>                     # Trace a variable\n"
     "quit                            # End the simulation\n"
@@ -260,6 +262,40 @@ void sim_t::interactive_trace(const std::string& cmd, const std::vector<std::str
     }
 }
 
+void irq_raise_clr(processor_t *p, const std::string &int_name, bool raise_clr_b) {
+    reg_t mask = 0;
+    if (int_name == "msi") {
+        mask |=  MIP_MSIP;
+    }
+    if (int_name == "mti") {
+        mask |= MIP_MTIP;
+    }
+    if (int_name == "mei") {
+        mask |= MIP_MEIP;
+    }
+    if (raise_clr_b) {
+        // Raise
+        p->get_state()->mip->backdoor_write_with_mask(mask, mask);
+    } else {
+        // Clear
+        p->get_state()->mip->backdoor_write_with_mask(mask, 0);
+    }
+}
+
+void sim_t::interactive_raise(const std::string& cmd, const std::vector<std::string>& args) {
+    if (args.size() != 3) {
+        sout_ << "Bad number of arguments " << args.size() << "\n";
+        throw trap_interactive();
+    }
+    processor_t *p = get_core(args[0]);
+    if (args[1] == "raise") {
+        irq_raise_clr(p, args[2], true);
+    } else {
+        irq_raise_clr(p, args[2], false);
+    }
+}
+
+
 void sim_t::interactive_run_noisy(const std::string& cmd, const std::vector<std::string>& args)
 {
   interactive_run(cmd,args,true);
@@ -281,6 +317,7 @@ void sim_t::interactive_run(const std::string& cmd, const std::vector<std::strin
   std::ostream out(sout_.rdbuf());
   if (!noisy) out << ":" << std::endl;
 }
+
 
 void sim_t::interactive_quit(const std::string& cmd, const std::vector<std::string>& args)
 {
@@ -571,11 +608,18 @@ void sim_t::interactive_until(const std::string& cmd, const std::vector<std::str
     get_core(args[1]); // make sure that argument is a valid core number
 
   char *end;
-  reg_t val = strtol(args[args.size()-1].c_str(),&end,16);
-  if (val == LONG_MAX)
-    val = strtoul(args[args.size()-1].c_str(),&end,16);
-  if (args[args.size()-1].c_str() == end)  // not a valid number
-    throw trap_interactive();
+
+  reg_t val;
+  elf_symbol_t sym = get_addr(args[args.size()-1]);
+  if (sym.size == 0) {
+      val = strtol(args[args.size()-1].c_str(),&end,16);
+      if (val == LONG_MAX)
+          val = strtoul(args[args.size()-1].c_str(),&end,16);
+      if (args[args.size()-1].c_str() == end)  // not a valid number
+          throw trap_interactive();
+  } else {
+      val = sym.addr;
+  }
 
   // mask bits above max_xlen
   int max_xlen = procs[strtol(args[1].c_str(),NULL,10)]->get_max_xlen();

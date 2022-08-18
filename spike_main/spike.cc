@@ -72,6 +72,7 @@ static void help(int exit_code = 1)
   fprintf(stderr, "  --dm-no-abstract-csr  Debug module won't support abstract to authenticate\n");
   fprintf(stderr, "  --dm-no-halt-groups   Debug module won't support halt groups\n");
   fprintf(stderr, "  --dm-no-impebreak     Debug module won't support implicit ebreak in program buffer\n");
+  fprintf(stderr, "  --vcd-log=<file>      Log VCD to this file.\n");
 
   exit(exit_code);
 }
@@ -232,6 +233,7 @@ int main(int argc, char** argv)
   bool log_cache = false;
   bool log_commits = false;
   const char *log_path = nullptr;
+  const char *vcd_log_path = nullptr;
   std::vector<std::function<extension_t*()>> extensions;
   const char* initrd = NULL;
   const char* isa = DEFAULT_ISA;
@@ -369,6 +371,8 @@ int main(int argc, char** argv)
                 [&](const char* s){log_commits = true;});
   parser.option(0, "log", 1,
                 [&](const char* s){log_path = s;});
+  parser.option(0, "vcd-log", 1,
+                [&](const char* s){vcd_log_path = s;});
   FILE *cmd_file = NULL;
   parser.option(0, "debug-cmd", 1, [&](const char* s){
      if ((cmd_file = fopen(s, "r"))==NULL) {
@@ -447,6 +451,9 @@ int main(int argc, char** argv)
   if (use_rbb) {
     remote_bitbang.reset(new remote_bitbang_t(rbb_port, &(*jtag_dtm)));
     s.set_remote_bitbang(&(*remote_bitbang));
+  }
+  if (vcd_log_path) {
+      s.set_enable_vcd(vcd_log_path);
   }
 
   if (dump_dts) {

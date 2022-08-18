@@ -136,6 +136,8 @@ void sim_t::interactive()
   funcs["untiln"] = &sim_t::interactive_until_noisy;
   funcs["while"] = &sim_t::interactive_until_silent;
   funcs["quit"] = &sim_t::interactive_quit;
+  funcs["trace"] = &sim_t::interactive_trace;
+
   funcs["q"] = funcs["quit"];
   funcs["help"] = &sim_t::interactive_help;
   funcs["h"] = funcs["help"];
@@ -223,12 +225,39 @@ void sim_t::interactive_help(const std::string& cmd, const std::vector<std::stri
     "run [count]                     # Resume noisy execution (until CTRL+C, or [count] insns)\n"
     "r [count]                         Alias for run\n"
     "rs [count]                      # Resume silent execution (until CTRL+C, or [count] insns)\n"
+    "trace <name> <addr> <size>      # Trace a memory address\n"
+    "trace <var>                     # Trace a variable\n"
     "quit                            # End the simulation\n"
     "q                                 Alias for quit\n"
     "help                            # This screen!\n"
     "h                                 Alias for help\n"
     "Note: Hitting enter is the same as: run 1"
     << std::endl;
+}
+
+void sim_t::interactive_trace(const std::string& cmd, const std::vector<std::string>& args) {
+    if (args.size()==1) {
+        // TODO - Trace VAR name
+        const auto &name = args[0];
+        elf_symbol_t sym = get_addr(name);
+        for (auto &p : procs) {
+            p->get_state()->trace_bus.add_trace(name, sym.addr, sym.size);
+        }
+        std::ostream out(sout_.rdbuf());
+        out << "Tracing " << name << ", " << sym.size << "bytes @" << std::hex << "0x" 
+            << sym.addr << std::endl;
+
+    } 
+    else if (args.size()==3) {
+        const auto &name = args[0];
+        reg_t addr = strtoul(args[1].c_str(), nullptr, 0);
+        reg_t size = strtoul(args[2].c_str(), nullptr, 0);
+        for (auto &p : procs) {
+            p->get_state()->trace_bus.add_trace(name, addr, size);
+        }
+    } else {
+        throw trap_interactive();
+    }
 }
 
 void sim_t::interactive_run_noisy(const std::string& cmd, const std::vector<std::string>& args)
@@ -264,7 +293,7 @@ reg_t sim_t::get_pc(const std::vector<std::string>& args)
     throw trap_interactive();
 
   processor_t *p = get_core(args[0]);
-  return p->get_state()->pc;
+  return p->get_state()->read_pc();
 }
 
 void sim_t::interactive_pc(const std::string& cmd, const std::vector<std::string>& args)
@@ -456,24 +485,32 @@ reg_t sim_t::get_mem(const std::vector<std::string>& args)
     addr_str = args[1];
   }
 
-  reg_t addr = strtol(addr_str.c_str(),NULL,16), val;
-  if (addr == LONG_MAX)
-    addr = strtoul(addr_str.c_str(),NULL,16);
+  elf_symbol_t sym_addr = get_addr(addr_str);
+  if (sym_addr.size == 0) {
+      // symbol not found
+  
+      sym_addr.addr = strtol(addr_str.c_str(),NULL,16);
+      if (sym_addr.addr == LONG_MAX) {
+          sym_addr.addr = strtoul(addr_str.c_str(),NULL,16);
+      }
+      sym_addr.size = sym_addr.addr % 8;
+  }
 
-  switch(addr % 8)
+  reg_t val;
+  switch(sym_addr.size)
   {
     case 0:
-      val = mmu->load_uint64(addr);
+      val = mmu->load_uint64(sym_addr.addr);
       break;
     case 4:
-      val = mmu->load_uint32(addr);
+      val = mmu->load_uint32(sym_addr.addr);
       break;
     case 2:
     case 6:
-      val = mmu->load_uint16(addr);
+      val = mmu->load_uint16(sym_addr.addr);
       break;
     default:
-      val = mmu->load_uint8(addr);
+      val = mmu->load_uint8(sym_addr.addr);
       break;
   }
   return val;

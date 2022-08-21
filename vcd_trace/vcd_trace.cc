@@ -7,7 +7,7 @@ namespace vcd_tracer {
 
     template<> void value_base::dump<float128_t>(std::ostream &out, 
                                                  const size_t bit_size, 
-                                                 const value_base::value_state state, 
+                                                 const value_state state, 
                                                  const float128_t value) const {
     }
 }

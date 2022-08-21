@@ -9,7 +9,7 @@
 // For access_type:
 #include "memtracer.h"
 
-#include "vcd_tracer.h"
+#include "vcd_trace.h"
 
 class processor_t;
 struct state_t;

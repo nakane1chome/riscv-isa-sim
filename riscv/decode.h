@@ -18,7 +18,7 @@
 #include "specialize.h"
 #include <cinttypes>
 
-#include "vcd_tracer.h"
+#include "vcd_trace.h"
 
 typedef int64_t sreg_t;
 typedef uint64_t reg_t;

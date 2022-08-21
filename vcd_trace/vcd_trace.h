@@ -12,7 +12,7 @@ namespace vcd_tracer {
     static constexpr int CSR_TRACE_DEPTH=500; 
     static constexpr int BUS_TRACE_WIDTH=32; 
 
-    extern volatile vcd_tracer::scope_fn::sequence_t trace_seq;
+    extern  vcd_tracer::scope_fn::sequence_t trace_seq;
 
     template<>
     inline bool sample_changed(const float128_t new_sample, const float128_t prev_sample) {

@@ -14,7 +14,7 @@
 #include "debug_rom_defines.h"
 #include "entropy_source.h"
 #include "csrs.h"
-#include "vcd_tracer.h"
+#include "vcd_trace.h"
 
 class processor_t;
 class mmu_t;

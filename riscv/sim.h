@@ -24,7 +24,7 @@
 #include <memory>
 #include <sys/types.h>
 
-#include "vcd_tracer.h"
+#include "vcd_trace.h"
 
 class mmu_t;
 class remote_bitbang_t;
